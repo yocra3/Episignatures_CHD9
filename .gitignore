@@ -43,6 +43,11 @@ data/
 results/
 nf-core-test/
 
+# Reports
+*.html
+
+
+
 # Nextflow files
 *.nextflow*
 work/
