@@ -1,0 +1,137 @@
+---
+title: "Episignatures"
+author: "Carlos Ruiz"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## Introduction
+
+In this document, we will explore the candidate episignatures from the dataset. We previously computed the CpGs that have changes in methylation larger than 0.2 between controls, CHD9, REPS2 and other cases.
+
+We had two different dataset. One dataset contained 23 samples, with 2 REPS2 and 2 CHD9. The second dataset had 11 individuals: 3 CHD9 and 8 controls. 
+
+Episignatures for REPS2 and cases were computed in the full dataset, while the episignature for CHD9 was computed in the reduced dataset. Episignatures for CHD9 were explored in both datasets.
+
+```{r}
+library(minfi)
+library(tidyverse)
+library(pheatmap)
+```
+
+```{r}
+version <- "2021-05-25"
+load(paste0("../results/preprocess/", version, "/combined.autosomic.filterAnnotatedProbes.GenomicRatioSet.Rdata"))
+load(paste0("../results/episignatures/", version,  "/group_features.Rdata"))
+
+gset$Batch <- factor(gset$Sentrix.Barcode)
+```
+
+## Episignatures 
+
+```{r}
+lengths(features)
+
+cols <- c("#000000", "pink", "green", "blue", "red")
+names(cols) <- c("Control", "Portador", "REPS2", "CHD9", "Caso")
+cols2 <- c("#bc1a51", "#08bea2", "#b37c45", "#21c8fa", "#5c3fdd", "yellow", "#999999", "#20de5d", "#ffffff", "pink")
+names(cols2) <- paste0("Fam", 1:10)
+
+cols3 <- c("purple", "yellow", "brown", "grey")
+names(cols3) <- c("204792780100", "204792780101", "204792780116", "204792780120")
+
+col_colors <- list(
+    Grupo2 = cols,
+    Familia = cols2,
+    Batch = cols3
+)
+```
+
+REPS2 had the highest number of CpGs with different methylation, while the cases had the lowest.
+
+
+### REPS2 vs controls
+
+```{r}
+mat_reps2 <- getBeta(gset[features$REPS2, gset$Grupo2 %in% c("REPS2", "Control")])
+
+
+
+pheatmap(mat_reps2, scale = "none", 
+		annotation_col  = data.frame(colData(gset[gset$Grupo2 %in% c("REPS2", "Control"), ])[, c("Batch", "Familia", "Grupo2")]),
+		annotation_colors =  col_colors, 
+		show_rownames = FALSE)
+
+```
+
+REPS2 individuals are clearly separated from the controls. For a great number of CpGs, REPS2 individuals have intermediate methylation values while control individuals are fully methylated.
+
+### CHD9 vs controls
+
+
+```{r}
+mat_chd9 <- getBeta(gset[features$CHD9, gset$Grupo2 %in% c("CHD9", "Control")])
+
+
+
+pheatmap(mat_chd9, scale = "none", 
+		annotation_col  = data.frame(colData(gset[gset$Grupo2 %in% c("CHD9", "Control"), ])[, c("Batch", "Familia", "Grupo2")]),
+		annotation_colors =  col_colors, 
+		show_rownames = FALSE)
+
+```
+
+The three CHD9 individuals are separated from the controls.  
+
+
+### Remaining cases and carriers vs controls
+
+```{r}
+mat_caso <- getBeta(gset[features$Caso, gset$Grupo2 %in% c("Caso", "Portador", "Control")])
+
+
+
+pheatmap(mat_caso, scale = "none", 
+		annotation_col  = data.frame(colData(gset[gset$Grupo2 %in% c("Caso", "Portador", "Control"), ])[, c("Batch", "Familia", "Grupo2")]),
+		annotation_colors =  col_colors, 
+		show_rownames = FALSE)
+
+```
+
+All cases but one are separated from controls. Cases and carriers do no share a methylation pattern. Batch does not seem to be enough to explain these differences. For a great number of CpGs, cases are fully methylated or unmethylated while controls have intermediate methylation values.
+
+### Combined episignature
+
+
+```{r}
+feats <- unique(unlist(features))
+
+mat <- getBeta(gset[feats, ])
+
+
+
+pheatmap(mat, scale = "none", 
+		annotation_col  = data.frame(colData(gset)[, c("Batch", "Familia", "Grupo2")]),
+		annotation_colors =  col_colors, 
+		show_rownames = FALSE)
+
+```
+
+When including all CpGs that separates controls from any of the cases, individuals can be divided in three main groups: 
+
+1. REPS2 cases and REPS2 carrier
+1. CHD9 and other cases 
+1. Controls (including one case)
+
+The main conclussions are:
+
+- REPS2 have a distinct methylation pattern from the other individuals. REPS2 carrier also have a different methylation pattern, although it is not as extreme as the REPS2 cases.
+- CHD9 and other cases have a distinct methylation pattern. This metylation pattern is different from the controls and from the REPS2 cases. With these CpGs, we cannot distinguish cases with CHD9 mutation from cases with other mutations.
+
+Only REPS2 carrier had an impact on DNA methylation. The other carriers do not seem to have an affected methylation pattern.
+
+

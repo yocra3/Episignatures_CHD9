@@ -41,3 +41,8 @@ vignettes/*.pdf
 # Results folder
 data/
 results/
+nf-core-test/
+
+# Nextflow files
+*.nextflow*
+work/
