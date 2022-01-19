@@ -11,5 +11,5 @@ nextflow run workflows/runMethylationQC.nf --pheno_age data/Edadysexo.csv \
 
 ## Define episignatures
 nextflow run workflows/defineEpimutations.nf \
---gset results/preprocess/2021-05-25/combined.autosomic.filterAnnotatedProbes.GenomicRatioSet.Rdata \
+--gset results/preprocess/script/chd9.autosomic.filterAnnotatedProbes.GenomicRatioSet.Rdata \
 -profile docker -resume

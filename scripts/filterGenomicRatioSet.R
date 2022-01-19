@@ -14,10 +14,10 @@
 
 ## Capture arguments
 args <- commandArgs(trailingOnly=TRUE)
-gsetfile <-  "results/preprocess/script/chd9.normalizedRaw.GenomicRatioSet.Rdata"
-qc_path <- "results/preprocess/script/chd9.qc.objects.clean.Rdata"
-manifest <- "data/EPIC.hg19.manifest.rds"
-outPrefix <- "results/preprocess/script/chd9"
+gsetfile <- args[1]
+detP_path <- args[2]
+manifest <- args[3]
+outPrefix <- args[4]
 
 ## Load libraries ####
 library(minfi)
@@ -25,8 +25,8 @@ library(meffil)
 
 ## Load dataset ####
 load(gsetfile)
-load(qc_path)
 grAnnot <- readRDS(manifest)
+load(detP_path)
 ori <- gset
 
 ### Probes not measuring methylation
@@ -44,8 +44,6 @@ save(gset, file = paste0(outPrefix, ".autosomic.filterAnnotatedProbes.GenomicRat
 ## Create Initial and final dataset with missings
 final <- gset
 gset <- ori
-
-detP <- meffil.load.detection.pvalues(qc.objects)
 dp.f <- detP[rownames(gset), colnames(gset)]
 
 beta <- getBeta(gset)
@@ -55,4 +53,3 @@ save(gset, file = paste0(outPrefix, ".allCpGs.withNA.GenomicRatioSet.Rdata"))
 
 gset <- gset[rownames(final), colnames(final)]
 save(gset, file = paste0(outPrefix, ".autosomic.filterAnnotatedProbes.withNA.GenomicRatioSet.Rdata"))
-

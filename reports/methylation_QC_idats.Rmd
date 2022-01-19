@@ -1,0 +1,184 @@
+---
+title: "Methylation QC IDATs"
+author: "Carlos Ruiz"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## Introduction
+
+In this document, we will explore the general patterns of the methylation data.
+
+
+```{r}
+library(meffil)
+library(minfi)
+library(tidyverse)
+library(dendextend)
+```
+
+## Quality control
+
+```{r}
+load("../results/preprocess/script/chd9.normalizedRaw.GenomicRatioSet.Rdata")
+ini <- nrow(gset)
+outs <- read.table("../results/preprocess/script/chd9.removed.samples.txt")
+```
+
+Our initial dataset consisted of 865918 probes and `r ncol(gset) + nrow(outs)`. After QC, `r 865918 - ini` probes were removed due to low call rate, while `r nrow(outs)` sample was discarded:
+
+```{r}
+outs
+```
+
+
+```{r}
+load("../results/preprocess/script/chd9.autosomic.filterAnnotatedProbes.GenomicRatioSet.Rdata")
+fin <- nrow(gset)
+```
+
+Next, we removed `r ini - fin` probes not measuring methylation, crosshibridizing or with SNPs or in sexual chromosomes. Our final dataset had `r ncol(gset)` and `r fin` probes. 
+
+## Samples descriptives
+
+```{r}
+getSum <- function(vec, type = "continuous"){
+  if (type == "continuous"){
+    c(median = median(vec, na.rm = TRUE), 
+      range = quantile(vec, probs = c(0.25, 0.75), na.rm = TRUE))
+  } else if (type == "categorical"){
+    t <- table(vec)
+    data.frame(Categories = names(t),  N = as.vector(t), 
+               Percentage = sprintf("%.2f", as.vector(prop.table(t)*100)))
+  }
+}
+```
+
+```{r}
+getSum(gset$Estatus, "categorical")
+```
+
+We have 11 probands and 13 control relatives.
+
+```{r}
+getSum(gset$Sexo, "categorical")
+```
+
+We have a higher proportion of males than females.
+
+```{r}
+table(gset$Estatus, gset$Sexo)
+```
+
+Only one proband is a girl, while the controls are the mother or the father.
+
+
+```{r}
+table(gset$Grupo2)
+```
+We have three individuals with CHD9 mutations, two with REPS2 and six with other mutations. Five parents were carriers of pathogenic mutations while 8 were controls.
+
+
+```{r}
+getSum(gset$Sentrix.Barcode, "categorical")
+```
+
+Individuals were processed in four arrays.
+
+```{r}
+table(gset$Familia, gset$Sentrix.Barcode)
+```
+
+Each family was processed in a different array.
+
+## Global methylation patterns
+
+We computed a PCA including the top 40000 most variable probes, in order to observe global patterns in the data.
+
+```{r}
+pcs <- meffil.methylation.pcs(getBeta(gset), probe.range = 40e3)
+pcs_df <- pcs %>%
+  data.frame() %>%
+  mutate(Sample_Name = rownames(.)) %>%
+  tibble() %>%
+  left_join(data.frame(colData(gset)), by = "Sample_Name") %>%
+  mutate(Slide = factor(Slide))
+
+
+vars <- c("Slide", "Sexo", "Estatus", "Familia", "Grupo", "Grupo2")
+names(vars) <- vars
+pcsLM <- lapply(vars, function(x) {
+  lapply(paste0("PC", 1:10), function(y) summary(lm(formula(paste(y, "~ ", x)), pcs_df)))
+})
+
+pcsP <- sapply(pcsLM, function(x) {
+  sapply(x, function(y) pf(y$fstatistic[1], y$fstatistic[2], y$fstatistic[3], lower.tail = FALSE))
+})
+rownames(pcsP) <- paste0("PC", 1:10)
+pcsP
+min(pcsP)
+1 - max(pcsP)
+```
+
+Family has the strongest association with the general methylation patterns. Slide is also associated with the second PC.
+
+```{r}
+ggplot(pcs_df, aes(x = PC1, y = PC2, color = Slide)) +
+         geom_point() +
+  theme_bw()
+```
+
+Individuals are grouped by their slide.
+
+```{r}
+ggplot(pcs_df, aes(x = PC2, y = PC5, color = Slide)) +
+         geom_point() +
+  theme_bw()
+```
+
+Using PCs 2 and 5 we can easily separate individuals by array.
+
+```{r}
+ggplot(pcs_df, aes(x = PC1, y = PC2, color = Sexo)) +
+         geom_point() +
+  theme_bw()
+```
+
+We do not observe differences in global methylation due to sex.
+
+
+```{r}
+ggplot(pcs_df, aes(x = PC1, y = PC2, color = Estatus)) +
+         geom_point() +
+  theme_bw()
+```
+
+The first PC separates cases from controls.
+
+```{r}
+ggplot(pcs_df, aes(x = PC1, y = PC2, color = Familia)) +
+         geom_point() +
+  theme_bw()
+```
+
+Samples are not clustered by family in the first two PCs. 
+
+```{r}
+ggplot(pcs_df, aes(x = PC2, y = PC4, color = Familia)) +
+         geom_point() +
+  theme_bw()
+```
+With second and fourth PC we can clearly differentiate the families.
+
+```{r}
+ggplot(pcs_df, aes(x = PC1, y = PC2, color = Familia, shape = Grupo2)) +
+         geom_point(size = 3) +
+  theme_bw()
+```
+
+We observe some differences between cases and controls in the first PC. 
+

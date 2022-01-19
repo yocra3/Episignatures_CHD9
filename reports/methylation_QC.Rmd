@@ -32,6 +32,7 @@ getNumLines <- function(path){
   as.numeric(strsplit(com, " ")[[1]][1])
 }
 ini <- getNumLines("../data/rawdata/data.txt")
+ori <- gset
 ```
 Our initial dataset consisted of `r as.character(ini)` probes and `r ncol(gset)` samples. Given that we only had access to detection p-values, QC was only based on this parameter. We discarded the `r ini - pr` probes with a detection p-value > 2e-16 in more than 95%, resulting in `r pr`. No samples were discarded due to low call rate.   
 
@@ -181,3 +182,31 @@ ggplot(pcs_df, aes(x = PC1, y = PC2, color = Familia, shape = Grupo2)) +
 ```
 
 We do not observe a clear pattern differentiating cases and controls. 
+
+# Sex checking
+
+We checked the sex of the individuals with a PCA of X probes:
+
+```{r}
+probesX <- ori[seqnames(ori) == "chrX", ]
+pcaX <- prcomp(t(getBeta(probesX[rowSums(is.na(getBeta(probesX))) == 0, ])))
+
+pcaX_df <- pcaX$x %>%
+  data.frame() %>%
+  mutate(SampleID = rownames(.)) %>%
+  tibble() %>%
+  left_join(data.frame(colData(ori)), by = "SampleID") %>%
+  mutate(Sexo = factor(Sexo))
+ggplot(pcaX_df, aes(x = PC1, y = PC2, color = Sexo)) +
+         geom_point() +
+  theme_bw()
+```
+
+Two samples have a wrong sex label.
+
+```{r}
+subset(pcaX_df, PC1 < 0 & Sexo == "F")$SampleID
+subset(pcaX_df, PC1 > 0 & Sexo == "M")$SampleID
+
+```
+Samples 19_0215 and 19_0213 have wrong sex and might be mislabeled.
